@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="banner.png" alt="Sofa Engineer — vibe coding from the couch" width="100%">
+</p>
+
 # VybeCoding Webcam Companion
 
 **Stream your desktop webcam to [VybeCoding](https://vybecoding-rho.vercel.app) on your iPhone.** The companion app that makes vibe coding with a live camera feed possible.
