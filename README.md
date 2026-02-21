@@ -2,7 +2,7 @@
   <img src="banner.png" alt="Sofa Engineer — vibe coding from the couch" width="100%">
 </p>
 
-# VybeCoding Webcam Companion
+# VybeCoding Companion
 
 **Stream your desktop webcam to [VybeCoding](https://vybecoding-rho.vercel.app) on your iPhone.** The companion app that makes vibe coding with a live camera feed possible.
 
@@ -10,13 +10,13 @@
 
 ## What is this?
 
-VybeCoding Webcam is a lightweight desktop companion app that streams your computer's webcam to the VybeCoding iOS app over your local Wi-Fi network. It's designed for developers who vibe code from their phone and want to see a live camera feed — whether that's monitoring a 3D printer, keeping an eye on a server rack, pair programming with a physical whiteboard, or just having a face cam while you code remotely.
+VybeCoding Companion is a lightweight desktop app that streams your computer's webcam to the VybeCoding iOS app over your local Wi-Fi network. It's designed for developers who vibe code from their phone and want to see a live camera feed — whether that's monitoring a 3D printer, keeping an eye on a server rack, pair programming with a physical whiteboard, or just having a face cam while you code remotely.
 
 ## What is Vibe Coding?
 
 Vibe coding is a new way of building software — coding by feel, using natural language and AI to write, run, and deploy code. Instead of memorising syntax, you speak your intent and let AI translate it into real commands. VybeCoding is the vibe coding terminal for iPhone: an AI-powered SSH client that turns plain English into shell commands, with voice control, safety analysis, and a full terminal experience on your phone.
 
-## Why do I need the Webcam Companion?
+## Why do I need the Companion?
 
 iPhones can't directly access your Mac or PC's webcam over the network. This companion app bridges that gap:
 
@@ -51,7 +51,7 @@ Head to the [**Releases**](https://github.com/VybeCodin/webcam/releases) page an
 ## Quick Start
 
 1. **Download and install** the app from [Releases](https://github.com/VybeCodin/webcam/releases)
-2. **Open VybeCoding Webcam** on your Mac
+2. **Open VybeCoding** on your Mac
 3. **Select your camera** and click **Start Streaming**
 4. **Open VybeCoding** on your iPhone and tap the **Webcam** button on any server
 5. Your live camera feed appears instantly — no setup needed
@@ -61,7 +61,7 @@ Head to the [**Releases**](https://github.com/VybeCodin/webcam/releases) page an
 ```
 Your Mac                          Your iPhone
 ┌──────────────────────┐          ┌──────────────────────┐
-│  VybeCoding Webcam   │          │     VybeCoding       │
+│  VybeCoding          │          │     VybeCoding       │
 │  Companion App       │◄────────►│     iOS App          │
 │                      │  Wi-Fi   │                      │
 │  Webcam → MJPEG      │  (LAN)   │  Webcam tab shows    │
@@ -69,8 +69,8 @@ Your Mac                          Your iPhone
 └──────────────────────┘          └──────────────────────┘
 ```
 
-1. The companion app captures your webcam using ffmpeg and serves it as an MJPEG stream
-2. It advertises itself on your local network via Bonjour (`_termy-cam._tcp`)
+1. The companion app captures your webcam using FFmpeg and serves it as an MJPEG stream
+2. It advertises itself on your local network via Bonjour (`_vybe-cam._tcp`)
 3. VybeCoding on your iPhone discovers the service automatically
 4. The app authenticates using a per-session token published in the Bonjour TXT record
 5. Your live webcam feed appears in the VybeCoding app — pinch to zoom, tap to snapshot
@@ -95,8 +95,9 @@ Your Mac                          Your iPhone
 
 - **Electron** — native desktop app with system tray support
 - **Express** — lightweight HTTP server for the MJPEG stream and configuration API
-- **ffmpeg** — hardware-accelerated webcam capture (bundled, no install needed)
-- **Bonjour/mDNS** — zero-config network discovery via `bonjour-service`
+- **FFmpeg** — hardware-accelerated webcam capture (bundled, no install needed)
+- **MediaMTX** — RTSP/HLS/WebRTC re-streaming server (bundled)
+- **Bonjour/mDNS** — zero-config network discovery
 
 ## Requirements
 
@@ -104,15 +105,90 @@ Your Mac                          Your iPhone
 - A webcam connected to your computer
 - VybeCoding app on your iPhone (same Wi-Fi network)
 
-## Building from Source
+---
+
+## Building & Releasing
+
+### Prerequisites
+
+- Node.js 18+
+- npm
+- Apple Developer ID certificate (for code signing)
+- [GitHub CLI](https://cli.github.com/) (`brew install gh`)
+- A `GH_TOKEN` in `desktop/.env.local` (GitHub personal access token with `repo` scope)
+
+### Development
 
 ```bash
 git clone https://github.com/VybeCodin/webcam.git
 cd webcam
 npm install
-npm start        # Run in development mode
-npm run build    # Build for distribution
+npm start        # Run in development mode (Electron)
+npm run server   # Run the Express server only (no Electron)
 ```
+
+### Build, Sign & Notarize
+
+The macOS build is code-signed with a Developer ID certificate and notarized with Apple:
+
+```bash
+npm run build:mac    # Build signed + notarized .dmg and .zip
+```
+
+This produces:
+- `dist/VybeCoding-{version}-arm64.dmg`
+- `dist/VybeCoding-{version}-arm64-mac.zip`
+
+Signing and notarization are configured in:
+- `electron-builder.yml` — signing identity, entitlements, targets
+- `scripts/notarize.js` — Apple notarization via `@electron/notarize`
+- `assets/entitlements.mac.plist` — macOS entitlements (camera, microphone, hardened runtime)
+
+### Automated Release (Recommended)
+
+The `build.sh` script handles the full release flow — version bump, build, sign, notarize, git tag, and GitHub release:
+
+```bash
+./build.sh           # Patch bump (1.5.0 → 1.5.1)
+./build.sh minor     # Minor bump (1.5.0 → 1.6.0)
+./build.sh major     # Major bump (1.5.0 → 2.0.0)
+```
+
+What it does:
+1. Bumps the version in `package.json`
+2. Builds the macOS app (signed + notarized)
+3. Commits the version bump and tags it `desktop-v{version}`
+4. Pushes the commit and tag to GitHub
+5. Creates a GitHub release on `VybeCodin/webcam` with the `.dmg` and `.zip` attached
+
+### Manual Release
+
+If you prefer to release manually:
+
+```bash
+# 1. Bump version
+npm version patch    # or minor / major
+
+# 2. Build
+npm run build:mac
+
+# 3. Commit, tag, push
+git add package.json package-lock.json
+git commit -m "Release desktop v1.6.0"
+git tag desktop-v1.6.0
+git push origin main
+git push origin desktop-v1.6.0
+
+# 4. Create GitHub release
+gh release create v1.6.0 \
+  --repo VybeCodin/webcam \
+  --title "VybeCoding v1.6.0" \
+  --generate-notes \
+  dist/VybeCoding-1.6.0-arm64.dmg \
+  dist/VybeCoding-1.6.0-arm64-mac.zip
+```
+
+---
 
 ## About VybeCoding
 
